@@ -1,0 +1,935 @@
+---
+title: "Naloxone Police Scotland Pilot: Quantitative Analysis 2"
+author: "Author: Michelle Jamieson"
+date: 'Code last run on: `r format(Sys.Date(), "%B %d, %Y")`'
+output: word_document  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Packages
+
+```{r load packages}
+if (!require(pacman)) install.packages("pacman")
+
+pacman::p_load(
+  collapse, # facilitate complex data transformation
+  DataExplorer,
+  styler,
+  psych,
+  dataReporter,
+  summarytools,
+  DiagrammeR, # generate graph diagrams using text in a Markdown-like syntax
+  forcats, # for working with categorical variables
+  ggplot2, # creating graphs
+  ggpubr, # creating publication ready plots
+  gtsummary, # publication-ready analytical and summary tables
+  haven, # read and write various data formats used by other statistical packages
+  here, # constructs paths to project's files
+  janitor, # examines and cleans dirty data
+  naniar, # allows missing data dependencies to be explored with minimal deviation
+  questionr, # to make the processing and analysis of surveys easier
+  readxl, # read in excel files
+  report, # produces reports of models and dataframes according to best practices
+  reprex, # sharing of small, reproducible, and runnable examples
+  skimr, # simple to use summary function that can be used with pipes
+  srvyr, # 'dplyr' tidy-like syntax for summary statistics of survey data
+  survey, # analyzing data from complex surveys
+  tidyverse
+) # opinionated collection of R packages designed for data science
+
+# check packages
+pacman::p_loaded()
+```
+
+# Read in Data Files
+
+``` {r read in data}
+# Read in
+base_sum <- read_excel("./Verbose Data/Baseline_Verbose_sum_18_11_2021.xlsx") %>%
+  clean_names() %>%
+  remove_empty(c("rows", "cols"))
+final_sum <- read_excel("./Verbose Data/Final_survey_verbose_sum_18-11-2021.xlsx") %>%
+  clean_names() %>%
+  remove_empty(c("rows", "cols"))
+post_sum <- read_excel("./Verbose Data/Post_Verbose_sum_18_11_2021.xlsx") %>%
+  clean_names() %>%
+  remove_empty(c("rows", "cols"))
+# check
+glimpse(base_sum)
+class(base_sum$femaleb)
+```
+
+# Tidy Data Frames
+
+```{r tidy cols}
+# arrange alphabetically and make 'colnames' lowercase
+# base_sum <- base_sum[,order(colnames(base_sum))] %>% rename_all(tolower)
+# final_sum <- final_sum[,order(colnames(final_sum))] %>% rename_all(tolower)
+# post_sum <- post_sum[,order(colnames(post_sum))] %>% rename_all(tolower)
+
+# check
+colnames(base_sum)
+```
+
+# EDA
+
+## Ovierview Tables
+
+```{r explore}
+# overview tables
+introduce(base_sum)
+introduce(final_sum)
+introduce(post_sum)
+
+# plot basic description for dataframes
+plot_intro(base_sum)
+plot_intro(final_sum)
+plot_intro(post_sum)
+```
+
+# Descriptive Tables
+
+# Sort Type & Recode Levels
+
+```{r sort to fct}
+base_sum <- base_sum %>% mutate_if(is.numeric, as.factor)
+class(base_sum$femaleb)
+final_sum <- final_sum %>% mutate_if(is.numeric, as.factor)
+class(final_sum$femalef)
+post_sum <- post_sum %>% mutate_if(is.numeric, as.factor)
+class(post_sum$femalep)
+
+# 0 = no, 1 = yes, # = other?
+class(base_sum$age25b)
+base_sum %>%
+  count(femaleb)
+
+# base
+# exlude: character vars
+base_sum <- base_sum %>%
+  mutate_at(.vars = vars(-idb,
+                         -surveyb,
+                         -areanarb,
+                         -concernsb),
+            .funs = function(x) recode(x,
+                                       `0` = "No", 
+                                       `1` = "Yes", 
+                                       .default = NA_character_
+)
+)
+base_sum %>%
+  count(idb)
+base_sum %>%
+  count(bry7preb)
+
+# post
+post_sum <- post_sum %>%
+  mutate_at(.vars = vars(-idp, -surveyp,
+                         -areanarp,
+                         -concernsp,
+                         -trhelpful,
+                         -trnegat,
+                         -trimprov),
+            .funs = function(x) recode(x,
+                                       `0` = "No", 
+                                       `1` = "Yes", 
+                                       .default = NA_character_
+)
+)
+post_sum %>%
+  count(trimprov)
+post_sum %>%
+  count(femalep)
+
+# final
+final_sum <- final_sum %>%
+  mutate_at(.vars = vars(-idf,
+                         -surveybf,
+                         -areanarf,
+                         -howmanf,
+                         -concernsf),
+            .funs = function(x) recode(x,
+                                       `0` = "No", 
+                                       `1` = "Yes", 
+                                       .default = NA_character_
+)
+)
+final_sum %>%
+  count(howmanf)
+```
+
+## Common Descriptives
+
+```{r descs tbls}
+# tbls
+# descr(base_sum,
+#  headings = FALSE, # remove headings
+#  stats = "common", # most common descriptive statistics
+#  transpose = T)
+
+# descr(final_sum,
+#  headings = FALSE, # remove headings
+#  stats = "common", # most common descriptive statistics
+#  transpose = T)
+
+# descr(post_sum,
+#  headings = FALSE, # remove headings
+#  stats = "common", # most common descriptive statistics
+#  transpose = T)
+```
+
+## Demographics 
+
+```{r demo tbls}
+base_sum <- base_sum %>% mutate_if(is.factor, as.character)
+post_sum <- post_sum %>% mutate_if(is.factor, as.character)
+final_sum <- final_sum %>% mutate_if(is.factor, as.character)
+
+
+
+
+#
+base1 <- base_sum %>%
+  select(
+    maleb,
+    femaleb,
+    genothb,
+    age25b,
+    age34b,
+    age44b,
+    age54b,
+    age55b,
+    ageothb,
+    areadb,
+    areafb,
+    areagb,
+    areanarb,
+    edufurb,
+    eduhighb,
+    edupreb,
+    eduschb,
+    ethasb,
+    ethbacb,
+    ethbeib,
+    ethblsb,
+    ethmixb,
+    ethothb,
+    ethprefb,
+    ethweib,
+    ethwsb,
+    leng1b,
+    leng5b,
+    leng10b,
+    leng15b,
+    leng20b,
+    leng25b,
+    leng26b,
+    lengprefb,
+    rankcb,
+    rankchb,
+    rankinb,
+    rankpreb,
+    rankseb,
+    rankspb
+  )
+
+# other gender = oth gen/pref nts, -25 = -25 -34, 55= = 45 - 55=, area other = other, 
+class(base1)
+basetbl1 <- base1 %>%
+  tbl_summary(
+    missing = "no",
+    label = list(
+      maleb = "Male",
+      femaleb = "Female",
+      genothb = "Other Gender",
+      age25b = "< 25",
+      age34b = "25 - 34",
+      age44b = "35 - 44",
+      age54b = "45 - 54",
+      age55b = "55+",
+      ageothb = "Age: Prefer not to say",
+      areadb = "Area: Dundee",
+      areafb = "Area: Falkirk",
+      areagb = "Area: Glasgow",
+      areanarb = "Area: Other",
+      edufurb = "Education: Further",
+      eduhighb = "Education: Higher",
+      edupreb = "Education: Prefer not to say",
+      eduschb = "Education: Secondary School",
+      ethasb = "Asian (Scottish/British)",
+      ethbacb = "Black African or Caribbean",
+      ethbeib = "Black European or Irish",
+      ethblsb = "Black Scottish or British or Northern Irish",
+      ethmixb = "Mixed ethnicity",
+      ethothb = "Other ethnicity",
+      ethprefb = "Ethnicity: Prefer not to say",
+      ethweib = "White European or Irish",
+      ethwsb = "White Scottish or British or Northern Irish",
+      leng1b = "Service: < 1",
+      leng5b = "Service: 1 -5",
+      leng10b = "Service: 6 - 10",
+      leng15b = "Service: 11 - 15",
+      leng20b = "Service: 16 - 20",
+      leng25b = "Service: 21 - 25",
+      leng26b = "Service: 26+",
+      lengprefb = "Service: Prefer not to say",
+      rankcb = "Constable",
+      rankchb = "Chief inspector or higher",
+      rankinb = "Inspector",
+      rankpreb = "Rank: Prefer not to say",
+      rankseb = "Sergeant",
+      rankspb = "Special constable")
+    ) %>%
+  modify_caption("**Table 1. Demographics**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave 1: Base**") %>%
+  add_n() %>%
+  bold_labels(
+  )
+basetbl1
+
+####
+post1 <- post_sum %>%
+  select(
+malep,
+femalep,
+genothp,
+age25p,
+age34p,
+age44p,
+age54p,
+age55p,
+ageothp,
+areadp,
+areafp,
+areagp,
+areanarp,
+edufurp, 
+eduhighp,
+eduprep, 
+eduschp,
+ethasp,
+ethbacp,
+ethbeip,
+ethblsp,
+ethmixp,
+ethothp,
+ethprefp,
+ethweip,
+ethwsp,
+leng1p,
+leng5p,
+leng10p, 
+leng15p, 
+leng20p, 
+leng25p, 
+leng26p,
+lengprefp,
+rankcp, 
+rankchp, 
+rankinp, 
+rankprep, 
+ranksep, 
+rankspp
+)
+posttbl1 <- post1 %>%
+  tbl_summary(missing = "no",
+              label = list(malep ~ "Male",
+femalep ~ "Female",
+genothp ~ "Other Gender",
+age25p ~ "< 25",
+age34p ~ "25 - 34",
+age44p ~ "35 - 44",
+age54p ~ "45 - 54",
+age55p ~ "55+",
+ageothp ~ "Age: Prefer not to say",
+areadp ~ "Area: Dundee",
+areafp ~ "Area: Falkirk",
+areagp ~ "Area: Glasgow",
+areanarp ~ "Area: Other",
+edufurp ~ "Education: Further", 
+eduhighp ~ "Education: Higher",
+eduprep ~ "Education: Prefer not to say", 
+eduschp ~ "Education: Secondary School",
+ethasp ~ "Asian (Scottish/British)",
+ethbacp ~ "Black African or Caribbean",
+ethbeip ~ "Black European or Irish",
+ethblsp ~ "Black Scottish or British or Northern Irish",
+ethmixp ~ "Mixed ethnicity",
+ethothp ~ "Other ethnicity",
+ethprefp ~ "Ethnicity: Prefer not to say",
+ethweip ~ "White European or Irish",
+ethwsp ~ "White Scottish or British or Northern Irish",
+leng1p ~ "Service: < 1",
+leng5p ~ "Service: 1 -5",
+leng10p ~ "Service: 6 - 10", 
+leng15p ~ "Service: 11 - 15", 
+leng20p ~ "Service: 16 - 20", 
+leng25p ~ "Service: 21 - 25", 
+leng26p ~ "Service: 26+",
+lengprefp ~ "Service: Prefer not to say",
+rankcp ~ "Constable", 
+rankchp ~ "Chief inspector or higher", 
+rankinp ~ "Inspector", 
+rankprep ~ "Rank: Prefer not to say", 
+ranksep ~ "Sergeant", 
+rankspp ~ "Special constable")
+) %>%
+  modify_caption("**Table 2. Demographics**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave 2: Post**") %>%
+  add_n() %>%
+  bold_labels(
+  )
+posttbl1
+
+####
+final1 <- final_sum %>%
+  select(
+malef,
+femalef,
+genothf,
+age25f,
+age34f,
+age44f,
+age54f,
+age55f,
+ageothf,
+areadf,
+areaff,
+areagf,
+areanarf,
+edufurf, 
+eduhighf,
+edupref, 
+eduschf,
+ethasf,
+ethbacf,
+ethbeif,
+ethblsf,
+ethmixf,
+ethothf,
+ethpreff,
+ethweif,
+ethwsf,
+leng1f,
+leng5f,
+leng10f, 
+leng15f, 
+leng20f, 
+leng25f, 
+leng26f,
+lengpreff,
+rankcf, 
+rankchf, 
+rankinf, 
+rankpref, 
+ranksef, 
+rankspf
+)
+finaltbl1 <- final1 %>%
+  tbl_summary(missing = "no",
+              label = list(malef ~ "Male",
+femalef ~ "Female",
+genothf ~ "Other Gender",
+age25f ~ "< 25",
+age34f ~ "25 - 34",
+age44f ~ "35 - 44",
+age54f ~ "45 - 54",
+age55f ~ "55+",
+ageothf ~ "Age: Prefer not to say",
+areadf ~ "Area: Dundee",
+areaff ~ "Area: Falkirk",
+areagf ~ "Area: Glasgow",
+areanarf ~ "Area: Other",
+edufurf ~ "Education: Further", 
+eduhighf ~ "Education: Higher",
+edupref ~ "Education: Prefer not to say", 
+eduschf ~ "Education: Secondary School",
+ethasf ~ "Asian (Scottish/British)",
+ethbacf ~ "Black African or Caribbean",
+ethbeif ~ "Black European or Irish",
+ethblsf ~ "Black Scottish or British or Northern Irish",
+ethmixf ~ "Mixed ethnicity",
+ethothf ~ "Other ethnicity",
+ethpreff ~ "Ethnicity: Prefer not to say",
+ethweif ~ "White European or Irish",
+ethwsf ~ "White Scottish or British or Northern Irish",
+leng1f ~ "Service: < 1",
+leng5f ~ "Service: 1 -5",
+leng10f ~ "Service: 6 - 10", 
+leng15f ~ "Service: 11 - 15", 
+leng20f ~ "Service: 16 - 20", 
+leng25f ~ "Service: 21 - 25", 
+leng26f ~ "Service: 26+",
+lengpreff ~ "Service: Prefer not to say",
+rankcf ~ "Constable", 
+rankchf ~ "Chief inspector or higher", 
+rankinf ~ "Inspector", 
+rankpref ~ "Rank: Prefer not to say", 
+ranksef ~ "Sergeant", 
+rankspf ~ "Special constable")
+) %>%
+  modify_caption("**Table 3. Demographics**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave 3: Final**") %>%
+  add_n() %>%
+  bold_labels(
+    )
+finaltbl1
+
+# merge
+#dem_tbl_merge <-
+#  tbl_merge(
+#    tbls = list(basetbl1, posttbl1, finaltbl1),
+#    tab_spanner = c("**Wave 1: Base**", "**Wave 2: Post**", "**Wave 3: Final**")
+#  )
+#dem_tbl_merge
+
+# size
+#tbl_butchered <-
+#   dem_tbl_merge %>%
+#   tbl_butcher()
+
+ # size comparison
+# object.size(dem_tbl_merge) %>% format(units = "Mb")
+
+# object.size(tbl_butchered) %>% format(units = "Mb")
+ 
+#tbl_butchered
+
+```
+
+## OOKS
+
+```{r ooks}
+# ooks tbl
+ooksw1 <- base_sum %>%
+  select(ooks1a1b:ooks8a6b
+)
+
+ookstblw1 <- ooksw1 %>%
+  tbl_summary(missing = "no",
+              label = list(
+                ooks1a1b ~ "Larger than usual herion dose",
+                ooks1a2b ~ "Switch from smoking to heroin",
+ooks1a3b ~ "Using heroin with other substances",
+ooks1a4b ~ "Increased herion purity",
+ooks1a5b ~ "Using again after not for awhile",
+ooks1a6b ~ "Using when nobody else there",
+ooks1a7b ~ "Long history of use",
+ooks1a8b ~ "Using after prison release",
+ooks1a9b ~ "Using after detox",
+ooks2a1b ~ "Have bloodshot eyes",
+ooks2a2b ~ "Slow/shallow breathing",
+ooks2a3b ~ "Lips/hands/feet turing blue",
+ooks2a4b ~ "Loss of consciousness",
+ooks2a5b ~ "Unresponsive",
+ooks2a6b ~ "Fitting",
+ooks2a7b ~ "Deep snoring",
+ooks2a8b ~ "Very small pupils",
+ooks2a9b ~ "Agitated",
+ooks2a10b ~ "Rapid heartbeat",
+ooks3a1b ~ "Call ambulance",
+ooks3a2b ~ "Stay until ambulance arrives",
+ooks3a3b ~ "Inject with salt solution/milk",
+ooks3a4b ~ "Give mouth-to-mouth",
+ooks3a5b ~ "Give stimulants (e.g. cociane)",
+ooks3a6b ~ "Place in recovery position",
+ooks3a7b ~ "Give naloxone",
+ooks3a8b ~ "Put in cold bath",
+ooks3a9b ~ "Check for breathing",
+ooks3a10b ~ "Check for blocked airways",
+ooks3a11b ~ "Put in bed",
+ooks4a1b ~ "To reverse effects of opiod overdose",
+ooks4a2b ~ "To reverse effects of amphetamine overdose",
+ooks4a3b ~ "To reverse effects of cocaine overdose",
+ooks4a4b ~ "To reverse effects of any overdose",
+ooks5a1b ~ "Into a muscle",
+ooks5a2b ~ "Into a vein",
+ooks5a3b ~ "Under the skin",
+ooks5a4b ~ "Swallow Liquid",
+ooks5a5b ~ "Swallow tablets",
+ooks5a6b ~ "Inside the nose",
+ooks5a7b ~ "Don't know",
+ooks6a1b ~ "2-3 mins",
+ooks6a2b ~ "6-10 mins",
+ooks6a3b ~ "11-20 mins",
+ooks6a4b ~ "21-40 mins",
+ooks6a5b ~ "Don't know",
+ooks7a1b ~ "20-30 mins",
+ooks7a2b ~ "About 4 hours",
+ooks7a3b ~ "6-12 hours",
+ooks7a4b ~ "24 hours",
+ooks7a5b ~ "Don't know",
+ooks8a1b ~ "If 1st dose naloxone has no effect a 2nd dose can be given",
+ooks8a2b ~ "No need to phone ambulance if I know how to manage overdose",
+ooks8a3b ~ "Can overdose again after having naloxone",
+ooks8a4b ~ "Effects of naloxone is shorter than herion/methadone",
+ooks8a5b ~ "After opiod overdose recovery they mustn't take any herion",
+ooks8a6b ~ "Naloxone can provoke withdrawal symptoms" 
+)
+) %>%
+  modify_caption("**Table 1. OOKS**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave 1: Base**") %>%
+  add_n() %>%
+  bold_labels(
+  )
+ookstblw1
+
+## post wave 2
+ooksw2 <- post_sum %>%
+  select(ooks1a1p:ooks8a6p
+)
+
+ookstblw2 <- ooksw2 %>%
+  tbl_summary(missing = "no",
+              label = list(
+                ooks1a1p ~ "Larger than usual herion dose",
+                ooks1a2p ~ "Switch from smoking to heroin",
+ooks1a3p ~ "Using heroin with other substances",
+ooks1a4p ~ "Increased herion purity",
+ooks1a5p ~ "Using again after not for awhile",
+ooks1a6p ~ "Using when nobody else there",
+ooks1a7p ~ "Long history of use",
+ooks1a8p ~ "Using after prison release",
+ooks1a9p ~ "Using after detox",
+ooks2a1p ~ "Have bloodshot eyes",
+ooks2a2p ~ "Slow/shallow breathing",
+ooks2a3p ~ "Lips/hands/feet turing blue",
+ooks2a4p ~ "Loss of consciousness",
+ooks2a5p ~ "Unresponsive",
+ooks2a6p ~ "Fitting",
+ooks2a7p ~ "Deep snoring",
+ooks2a8p ~ "Very small pupils",
+ooks2a9p ~ "Agitated",
+ooks2a10p ~ "Rapid heartbeat",
+ooks3a1p ~ "Call ambulance",
+ooks3a2p ~ "Stay until ambulance arrives",
+ooks3a3p ~ "Inject with salt solution/milk",
+ooks3a4p ~ "Give mouth-to-mouth",
+ooks3a5p ~ "Give stimulants (e.g. cociane)",
+ooks3a6p ~ "Place in recovery position",
+ooks3a7p ~ "Give naloxone",
+ooks3a8p ~ "Put in cold bath",
+ooks3a9p ~ "Check for breathing",
+ooks3a10p ~ "Check for blocked airways",
+ooks3a11p ~ "Put in bed",
+ooks4a1p ~ "To reverse effects of opiod overdose",
+ooks4a2p ~ "To reverse effects of amphetamine overdose",
+ooks4a3p ~ "To reverse effects of cocaine overdose",
+ooks4a4p ~ "To reverse effects of any overdose",
+ooks5a1p ~ "Into a muscle",
+ooks5a2p ~ "Into a vein",
+ooks5a3p ~ "Under the skin",
+ooks5a4p ~ "Swallow Liquid",
+ooks5a5p ~ "Swallow tablets",
+ooks5a6p ~ "Inside the nose",
+ooks5a7p ~ "Don't know",
+ooks6a1p ~ "2-3 mins",
+ooks6a2p ~ "6-10 mins",
+ooks6a3p ~ "11-20 mins",
+ooks6a4p ~ "21-40 mins",
+ooks6a5p ~ "Don't know",
+ooks7a1p ~ "20-30 mins",
+ooks7a2p ~ "About 4 hours",
+ooks7a3p ~ "6-12 hours",
+ooks7a4p ~ "24 hours",
+ooks7a5p ~ "Don't know",
+ooks8a1p ~ "If 1st dose naloxone has no effect a 2nd dose can be given",
+ooks8a2p ~ "No need to phone ambulance if I know how to manage overdose",
+ooks8a3p ~ "Can overdose again after having naloxone",
+ooks8a4p ~ "Effects of naloxone is shorter than herion/methadone",
+ooks8a5p ~ "After opiod overdose recovery they mustn't take any herion",
+ooks8a6p ~ "Naloxone can provoke withdrawal symptoms" 
+)
+) %>%
+  modify_caption("**Table 2. OOKS**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave 2: Post**") %>%
+  add_n() %>%
+  bold_labels(
+  )
+ookstblw2
+
+# ooks wave 3: Final
+ooksw3 <- final_sum %>%
+  select(ooks1a1f:ooks8a6f
+)
+
+ookstblw3 <- ooksw3 %>%
+  tbl_summary(
+    missing = "no",
+    label = list(
+      ooks1a1f ~ "Larger than usual herion dose",
+      ooks1a2f ~ "Switch from smoking to heroin",
+      ooks1a3f ~ "Using heroin with other substances",
+      ooks1a4f ~ "Increased herion purity",
+      ooks1a5f ~ "Using again after not for awhile",
+      ooks1a6f ~ "Using when nobody else there",
+      ooks1a7f ~ "Long history of use",
+      ooks1a8f ~ "Using after prison release",
+      ooks1a9f ~ "Using after detox",
+      ooks2a1f ~ "Have bloodshot eyes",
+      ooks2a2f ~ "Slow/shallow breathing",
+      ooks2a3f ~ "Lips/hands/feet turing blue",
+      ooks2a4f ~ "Loss of consciousness",
+      ooks2a5f ~ "Unresponsive",
+      ooks2a6f ~ "Fitting",
+      ooks2a7f ~ "Deep snoring",
+      ooks2a8f ~ "Very small pupils",
+      ooks2a9f ~ "Agitated",
+      ooks2a10f ~ "Rapid heartbeat",
+      ooks3a1f ~ "Call ambulance",
+      ooks3a2f ~ "Stay until ambulance arrives",
+      ooks3a3f ~ "Inject with salt solution/milk",
+      ooks3a4f ~ "Give mouth-to-mouth",
+      ooks3a5f ~ "Give stimulants (e.g. cociane)",
+      ooks3a6f ~ "Place in recovery position",
+      ooks3a7f ~ "Give naloxone",
+      ooks3a8f ~ "Put in cold bath",
+      ooks3a9f ~ "Check for breathing",
+      ooks3a10f ~ "Check for blocked airways",
+      ooks3a11f ~ "Put in bed",
+      ooks4a1f ~ "To reverse effects of opiod overdose",
+      ooks4a2f ~ "To reverse effects of amphetamine overdose",
+      ooks4a3f ~ "To reverse effects of cocaine overdose",
+      ooks4a4f ~ "To reverse effects of any overdose",
+      ooks5a1f ~ "Into a muscle",
+      ooks5a2f ~ "Into a vein",
+      ooks5a3f ~ "Under the skin",
+      ooks5a4f ~ "Swallow Liquid",
+      ooks5a5f ~ "Swallow tablets",
+      ooks5a6f ~ "Inside the nose",
+      ooks5a7f ~ "Don't know",
+      ooks6a1f ~ "2-3 mins",
+      ooks6a2f ~ "6-10 mins",
+      ooks6a3f ~ "11-20 mins",
+      ooks6a4f ~ "21-40 mins",
+      ooks6a5f ~ "Don't know",
+      ooks7a1f ~ "20-30 mins",
+      ooks7a2f ~ "About 4 hours",
+      ooks7a3f ~ "6-12 hours",
+      ooks7a4f ~ "24 hours",
+      ooks7a5f ~ "Don't know",
+      ooks8a1f ~ "If 1st dose naloxone has no effect a 2nd dose can be given",
+      ooks8a2f ~ "No need to phone ambulance if I know how to manage overdose",
+      ooks8a3f ~ "Can overdose again after having naloxone",
+      ooks8a4f ~ "Effects of naloxone is shorter than herion/methadone",
+      ooks8a5f ~ "After opiod overdose recovery they mustn't take any herion",
+      ooks8a6f ~ "Naloxone can provoke withdrawal symptoms"
+    )
+  ) %>%
+  modify_caption("**Table 3. OOKS**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Final**") %>%
+  add_n() %>%
+  bold_labels()
+ookstblw3
+```
+
+## OOAS
+
+```{r ooas}
+# subset ooas at base wave
+ooas_base <- base_sum %>%
+  select(ooas1cab:ooas26cdb)
+colnames(ooas_base)
+ooas_post <- post_sum %>%
+  select(ooas1cap:ooas26cdp)
+ooas_final <- final_sum %>%
+  select(ooas1caf:ooas26cdf)
+
+ooas_tbl_b <- ooas_base %>%
+  tbl_summary(
+    missing = "no",
+    label = list(
+      ooas1cab ~ "Completely Agree",
+      ooas1ab ~ "Agree",
+      ooas1ub ~ "Unsure",
+      ooas1db ~ "Disagree",
+      ooas1cdb ~ "Completely Disagree",
+      ooas2cab ~ "Completely Agree",
+      ooas2ab ~ "Agree",
+      ooas2ub ~ "Unsure",
+      ooas2db ~ "Disagree",
+      ooas2cdb ~ "Completely Disagree",
+      ooas3cab ~ "Completely Agree",
+      ooas3ab ~ "Agree",
+      ooas3ub ~ "Unsure",
+      ooas3db ~ "Disagree",
+      ooas3cdb ~ "Completely Disagree",
+      ooas4cab ~ "Completely Agree",
+      ooas4ab ~ "Agree",
+      ooas4ub ~ "Unsure",
+      ooas4db ~ "Disagree",
+      ooas4cdb ~ "Completely Disagree",
+      ooas5cab ~ "Completely Agree",
+      ooas5ab ~ "Agree",
+      ooas5ub ~ "Unsure",
+      ooas5db ~ "Disagree",
+      ooas5cdb ~ "Completely Disagree",
+      ooas6cab ~ "Completely Agree",
+      ooas6ab ~ "Agree",
+      ooas6ub ~ "Unsure",
+      ooas6db ~ "Disagree",
+      ooas6cdb ~ "Completely Disagree",
+      ooas7cab ~ "Completely Agree",
+      ooas7ab ~ "Agree",
+      ooas7ub ~ "Unsure",
+      ooas7db ~ "Disagree",
+      ooas7cdb ~ "Completely Disagree",
+      ooas8cab ~ "Completely Agree",
+      ooas8ab ~ "Agree",
+      ooas8ub ~ "Unsure",
+      ooas8db ~ "Disagree",
+      ooas8cdb ~ "Completely Disagree",
+      ooas9cab ~ "Completely Agree",
+      ooas9ab ~ "Agree",
+      ooas9ub ~ "Unsure",
+      ooas9db ~ "Disagree",
+      ooas9cdb ~ "Completely Disagree",
+      ooas10cab ~ "Completely Agree",
+      ooas10ab ~ "Agree",
+      ooas10ub ~ "Unsure",
+      ooas10db ~ "Disagree",
+      ooas10cdb ~ "Completely Disagree",
+      ooas11cab ~ "Completely Agree",
+      ooas11ab ~ "Agree",
+      ooas11ub ~ "Unsure",
+      ooas11db ~ "Disagree",
+      ooas11cdb ~ "Completely Disagree",
+      ooas12cab ~ "Completely Agree",
+      ooas12ab ~ "Agree",
+      ooas12ub ~ "Unsure",
+      ooas12db ~ "Disagree",
+      ooas12cdb ~ "Completely Disagree",
+      ooas13cab ~ "Completely Agree",
+      ooas13ab ~ "Agree",
+      ooas13ub ~ "Unsure",
+      ooas13db ~ "Disagree",
+      ooas13cdb ~ "Completely Disagree",
+      ooas14cab ~ "Completely Agree",
+      ooas14ab ~ "Agree",
+      ooas14ub ~ "Unsure",
+      ooas14db ~ "Disagree",
+      ooas14cdb ~ "Completely Disagree",
+      ooas15cab ~ "Completely Agree",
+      ooas15ab ~ "Agree",
+      ooas15ub ~ "Unsure",
+      ooas15db ~ "Disagree",
+      ooas15cdb ~ "Completely Disagree",
+      ooas16cab ~ "Completely Agree",
+      ooas16ab ~ "Agree",
+      ooas16ub ~ "Unsure",
+      ooas16db ~ "Disagree",
+      ooas16cdb ~ "Completely Disagree",
+      ooas17cab ~ "Completely Agree",
+      ooas17ab ~ "Agree",
+      ooas17ub ~ "Unsure",
+      ooas17db ~ "Disagree",
+      ooas17cdb ~ "Completely Disagree",
+      ooas18cab ~ "Completely Agree",
+      ooas18ab ~ "Agree",
+      ooas18ub ~ "Unsure",
+      ooas18db ~ "Disagree",
+      ooas18cdb ~ "Completely Disagree",
+      ooas19cab ~ "Completely Agree",
+      ooas19ab ~ "Agree",
+      ooas19ub ~ "Unsure",
+      ooas19db ~ "Disagree",
+      ooas19cdb ~ "Completely Disagree",
+      ooas20cab ~ "Completely Agree",
+      ooas20ab ~ "Agree",
+      ooas20ub ~ "Unsure",
+      ooas20db ~ "Disagree",
+      ooas20cdb ~ "Completely Disagree",
+      ooas21cab ~ "Completely Agree",
+      ooas21ab ~ "Agree",
+      ooas21ub ~ "Unsure",
+      ooas21db ~ "Disagree",
+      ooas21cdb ~ "Completely Disagree",
+      ooas22cab ~ "Completely Agree",
+      ooas22ab ~ "Agree",
+      ooas22ub ~ "Unsure",
+      ooas22db ~ "Disagree",
+      ooas22cdb ~ "Completely Disagree",
+      ooas23cab ~ "Completely Agree",
+      ooas23ab ~ "Agree",
+      ooas23ub ~ "Unsure",
+      ooas23db ~ "Disagree",
+      ooas23cdb ~ "Completely Disagree",
+      ooas24cab ~ "Completely Agree",
+      ooas24ab ~ "Agree",
+      ooas24ub ~ "Unsure",
+      ooas24db ~ "Disagree",
+      ooas24cdb ~ "Completely Disagree",
+      ooas25cab ~ "Completely Agree",
+      ooas25ab ~ "Agree",
+      ooas25ub ~ "Unsure",
+      ooas25db ~ "Disagree",
+      ooas25cdb ~ "Completely Disagree",
+      ooas26cab ~ "Completely Agree",
+      ooas26ab ~ "Agree",
+      ooas26ub ~ "Unsure",
+      ooas26db ~ "Disagree",
+      ooas26cdb ~ "Completely Disagree"
+    )
+  ) %>%
+  modify_caption("**Table 1. OOAS**") %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Wave: Base**") %>%
+  add_n() %>%
+  bold_labels()
+ooas_tbl_b
+```
+
+## NaRRC-B
+
+```{r narrcb}
+
+```
+
+## White et al. (2021)
+
+```{r white}
+
+```
+
+## Additional Questions
+
+```{r additionalq}
+
+```
+
+## Bryan et al. (2016)
+
+```{r bryan}
+
+```
+
+## Carriage Use Questions (Final)
+
+```{r carriageuse}
+
+```
+
+# Scoring
+
+## OOAS
+```{r ooas score}
+
+```
+
+
+# Data Dictionary Creation
+
+```{r data dict}
+#makeDataReport(base_sum, replace = T)
+#makeDataReport(final_sum, replace = T)
+#makeDataReport(post_sum, replace = T)
+```
